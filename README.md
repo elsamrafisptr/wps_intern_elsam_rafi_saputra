@@ -1,2 +1,2 @@
-# wps_intern_elsam_rafi_saputra
-Studi kasus technical test
+# WPS Intern Elsam Rafi Saputra
+Studi kasus technical test (not finished yet)
