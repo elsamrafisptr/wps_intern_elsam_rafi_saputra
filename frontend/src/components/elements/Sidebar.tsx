@@ -10,58 +10,109 @@ import { VerifiedIcon } from "lucide-react";
 import { NAVIGATIONDATA } from "@/constant/navigation";
 import { useSidebarStore } from "@/stores/sidebarStore";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import axiosInstance from "@/lib/axios/config";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { getUserData } from "@/lib/services";
 import { getSectorById } from "@/lib/axios/api/sectors";
+import axiosInstance from "@/lib/axios/config";
 
 const SideBar = () => {
   const isOpen = useSidebarStore((state) => state.isOpen);
+  const toggleSidebar = useSidebarStore((state) => state.handleShowSidebar);
   const pathname = usePathname();
   const router = useRouter();
 
   const [userData, setUserData] = useState(null);
   const [userSector, setUserSector] = useState("");
 
+  // Fetch user data and sector information
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const user = getUserData();
+        const user = await getUserData();
         setUserData(user);
 
         if (user?.sector_id) {
           const sector = await getSectorById(user.sector_id);
-          setUserSector(sector.name);
+          setUserSector(sector?.name || "");
         }
       } catch (error) {
         console.error("Failed to fetch sector", error);
       }
     };
+
     fetchUserData();
   }, []);
 
-  if (pathname === "/login" || pathname === "/register") return null;
-
-  const logout = async () => {
+  // Memoize the logout function to prevent re-creation on each render
+  const logout = useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
       if (!token) {
         console.error("No token found");
         return;
       }
+      console.log("token exist: ", token)
 
-      await axiosInstance.post("/logout", null, {
-        headers: {
-          Authorization: `Bearer ${token}`, 
-        },
-      });
+      // await axiosInstance.post("/logout", null, {
+      //   headers: {
+      //     Authorization: `Bearer ${token}`,
+      //   },
+      // });
 
       localStorage.removeItem("token");
+      console.log("check token exist: ", token)
       router.push("/login");
     } catch (error) {
       console.error("Logout failed", error);
     }
-  };
+  }, [router]);
+
+  // Avoid rendering Sidebar on login and register pages
+  if (pathname === "/login" || pathname === "/register") return null;
+
+  // Memoize navigation data to optimize re-renders
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const navigationLinks = useMemo(() => {
+    return NAVIGATIONDATA.map((item, index) => {
+      return isOpen ? (
+        <Link
+          key={index}
+          href={item.href}
+          className={cn(
+            "flex items-center gap-4 h-12 hover:bg-gray-100 rounded w-full px-4 dark:hover:bg-gray-500",
+            pathname === item.href &&
+              "bg-blue-600 text-white hover:bg-blue-700 md:fill-white dark:bg-blue-400 dark:hover:bg-blue-300"
+          )}
+        >
+          <item.icon className={cn("size-5 flex-shrink-0 dark:fill-white")} />
+          <span className="capitalize">{item.label}</span>
+        </Link>
+      ) : (
+        <Tooltip key={index}>
+          <TooltipTrigger asChild>
+            <Link
+              href={item.href}
+              className={cn(
+                buttonVariants({
+                  variant: "ghost",
+                  size: "icon",
+                }),
+                "size-12 dark:hover:bg-gray-600",
+                pathname === item.href &&
+                  !isOpen &&
+                  "fill-white bg-blue-600 transition-colors duration-300 hover:bg-blue-700 dark:bg-blue-400 dark:hover:bg-blue-300"
+              )}
+            >
+              <item.icon className={cn("size-4 dark:fill-white")} />
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{item.label}</p>
+          </TooltipContent>
+        </Tooltip>
+      );
+    });
+  }, [isOpen, pathname]);
 
   return (
     <div className="fixed top-0 left-0 h-screen">
@@ -80,10 +131,9 @@ const SideBar = () => {
           <button
             className={cn(
               "w-[38px] h-[38px] bg-white border border-gray-200 dark:border-gray-800 absolute -right-[18px] rounded-full flex justify-center items-center dark:bg-[#060606] hover:bg-blue-600 hover:fill-white hover:border-blue-600 duration-150 transition-colors",
-              isOpen ? "top-[225px]" : "top-[125px]"
+              isOpen ? "top-[225px]" : "top-[105px]"
             )}
-            // eslint-disable-next-line react-hooks/rules-of-hooks
-            onClick={useSidebarStore((state) => state.handleShowSidebar)}
+            onClick={toggleSidebar}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -93,12 +143,13 @@ const SideBar = () => {
               className={cn(
                 "dark:fill-white",
                 isOpen &&
-                  "rotate-180 duration-75 hover:fill-white transition-all "
+                  "rotate-180 duration-75 hover:fill-white transition-all"
               )}
             >
               <path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"></path>
             </svg>
           </button>
+
           {isOpen ? (
             <div className="flex flex-col gap-3">
               <div className="h-28 bg-gray-600 rounded-lg relative">
@@ -126,61 +177,22 @@ const SideBar = () => {
                 <AvatarImage src="/profile.jpg" />
                 <AvatarFallback>E</AvatarFallback>
               </Avatar>
-
-              <div className="aspect-square w-12 rounded-lg bg-transparent"></div>
+              <div className="w-full aspect-video"></div>
               <Separator />
             </>
           )}
         </div>
+
         <nav
           className={cn(
             "mt-4 flex flex-col gap-3 px-2 pb-6",
             !isOpen ? "items-center" : "items-start"
           )}
         >
-          {NAVIGATIONDATA.map((item, index) => {
-            return isOpen ? (
-              <Link
-                key={index}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-4 h-12 hover:bg-gray-100 rounded w-full px-4 dark:hover:bg-gray-500",
-                  pathname === item.href &&
-                    "bg-blue-600 text-white hover:bg-blue-700 md:fill-white dark:bg-blue-400 dark:hover:bg-blue-300"
-                )}
-              >
-                <item.icon
-                  className={cn("size-5 flex-shrink-0 dark:fill-white")}
-                />
-                <span className="capitalize">{item.label}</span>
-              </Link>
-            ) : (
-              <Tooltip key={index}>
-                <TooltipTrigger asChild>
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      buttonVariants({
-                        variant: "ghost",
-                        size: "icon",
-                      }),
-                      "size-12 dark:hover:bg-gray-600",
-                      pathname === item.href &&
-                        !isOpen &&
-                        "fill-white bg-blue-600 transition-colors duration-300 hover:bg-blue-700 dark:bg-blue-400 dark:hover:bg-blue-300"
-                    )}
-                  >
-                    <item.icon className={cn("size-4 dark:fill-white")} />
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent className="">
-                  <p>{item.label}</p>
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
+          {navigationLinks}
         </nav>
-        <button onClick={() => logout()}>Log Out</button>
+
+        <button onClick={logout}>Log Out</button>
       </div>
     </div>
   );
