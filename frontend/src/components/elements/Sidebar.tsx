@@ -11,9 +11,8 @@ import { NAVIGATIONDATA } from "@/constant/navigation";
 import { useSidebarStore } from "@/stores/sidebarStore";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { getUserData } from "@/lib/services";
-import { getSectorById } from "@/lib/axios/api/sectors";
 import axiosInstance from "@/lib/axios/config";
+import { Icons } from "./Icons";
 
 const SideBar = () => {
   const isOpen = useSidebarStore((state) => state.isOpen);
@@ -24,17 +23,23 @@ const SideBar = () => {
   const [userData, setUserData] = useState(null);
   const [userSector, setUserSector] = useState("");
 
-  // Fetch user data and sector information
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         const user = await getUserData();
         setUserData(user);
-
-        if (user?.sector_id) {
-          const sector = await getSectorById(user.sector_id);
-          setUserSector(sector?.name || "");
+        const storedSector = localStorage.getItem("sector");
+        if (user?.sector_id && !storedSector) {
+          const response = await axiosInstance.get(
+            `/api/sectors/${user.sector_id}`
+          );
+          const sectorName = response.data?.name || "";
+          setUserSector(sectorName);
+          localStorage.setItem("sector", sectorName);
+        } else {
+          setUserSector(storedSector || "");
         }
+        
       } catch (error) {
         console.error("Failed to fetch sector", error);
       }
@@ -43,16 +48,10 @@ const SideBar = () => {
     fetchUserData();
   }, []);
 
-  // Memoize the logout function to prevent re-creation on each render
   const logout = useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
-      if (!token) {
-        console.error("No token found");
-        return;
-      }
-      console.log("token exist: ", token)
-
+      if (!token) return;
       // await axiosInstance.post("/logout", null, {
       //   headers: {
       //     Authorization: `Bearer ${token}`,
@@ -60,21 +59,21 @@ const SideBar = () => {
       // });
 
       localStorage.removeItem("token");
-      console.log("check token exist: ", token)
+      localStorage.removeItem("user");
+      localStorage.removeItem("sector");
       router.push("/login");
     } catch (error) {
       console.error("Logout failed", error);
     }
   }, [router]);
 
-  // Avoid rendering Sidebar on login and register pages
-  if (pathname === "/login" || pathname === "/register") return null;
-
-  // Memoize navigation data to optimize re-renders
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const navigationLinks = useMemo(() => {
     return NAVIGATIONDATA.map((item, index) => {
-      return isOpen ? (
+      if (userData?.role !== "director" && (index === 4 || index === 5)) {
+        return null;
+      }
+
+      const link = (
         <Link
           key={index}
           href={item.href}
@@ -87,7 +86,9 @@ const SideBar = () => {
           <item.icon className={cn("size-5 flex-shrink-0 dark:fill-white")} />
           <span className="capitalize">{item.label}</span>
         </Link>
-      ) : (
+      );
+
+      const tooltip = (
         <Tooltip key={index}>
           <TooltipTrigger asChild>
             <Link
@@ -111,8 +112,15 @@ const SideBar = () => {
           </TooltipContent>
         </Tooltip>
       );
+
+      return isOpen ? link : tooltip;
     });
-  }, [isOpen, pathname]);
+  }, [isOpen, pathname, userData?.role]);
+
+  // Prevent sidebar from rendering on certain routes
+  if (pathname === "/login" || pathname === "/register" || pathname === "/") {
+    return null;
+  }
 
   return (
     <div className="fixed top-0 left-0 h-screen">
@@ -182,17 +190,29 @@ const SideBar = () => {
             </>
           )}
         </div>
-
-        <nav
-          className={cn(
-            "mt-4 flex flex-col gap-3 px-2 pb-6",
-            !isOpen ? "items-center" : "items-start"
-          )}
-        >
-          {navigationLinks}
-        </nav>
-
-        <button onClick={logout}>Log Out</button>
+        <div className="flex flex-col justify-between">
+          <nav
+            className={cn(
+              "mt-4 flex flex-col gap-3 px-2 pb-6",
+              !isOpen ? "items-center" : "items-start"
+            )}
+          >
+            {navigationLinks}
+          </nav>
+          <button
+            className={cn(
+              "flex items-center gap-4 h-12 hover:bg-gray-100 rounded w-full px-6 dark:hover:bg-gray-500"
+            )}
+            onClick={logout}
+          >
+            <Icons.home
+              className={cn(
+                "size-5 flex-shrink-0 dark:fill-white fill-red-600"
+              )}
+            />
+            {isOpen && <span className="capitalize text-red-600">Logout</span>}
+          </button>
+        </div>
       </div>
     </div>
   );

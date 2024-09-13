@@ -3,7 +3,6 @@
 import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import axiosInstance from "@/lib/axios/config";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { handleLogin } from "./action";
 
 const loginSchema = z.object({
   email: z
@@ -41,15 +41,11 @@ export default function Login() {
   });
 
   const onSubmit: SubmitHandler<LoginFormInputs> = async (data) => {
-    try {
-      const response = await axiosInstance.post("/login", data);
-      const { token, user } = response.data;
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
+    const response = await handleLogin(data);
+    if (response) {
       router.push("/dashboard");
-    } catch (err) {
-      console.error("Login Failed", err);
-      setError("Login Failed. Please check your credentials.");
+    } else {
+      setError(response.message);
     }
   };
 

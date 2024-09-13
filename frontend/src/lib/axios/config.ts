@@ -1,22 +1,19 @@
-import axios from "axios";
-import { getAuthToken } from "../services";
+import axios, { InternalAxiosRequestConfig } from "axios";
 
-export const API_URL = "http://localhost:8000/api";
+const API_URL = "http://localhost:8000/api";
 
 const axiosInstance = axios.create({
   baseURL: API_URL,
   headers: {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${getAuthToken()}`,
   },
 });
 
-axiosInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+axiosInstance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  const token = Cookies.get("token"); // Use cookies for token retrieval
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-
   return config;
 });
 

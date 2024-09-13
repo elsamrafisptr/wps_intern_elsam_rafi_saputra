@@ -2,7 +2,7 @@
 
 import Container from "@/components/elements/Container";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -20,6 +20,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Edit, Trash2, ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { checkAbsenceToday, getAllAbsences } from "@/lib/axios/api/absences";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import AbsenceForm from "./forms/AbsenceForm";
 
 const Absences = () => {
   return (
@@ -43,51 +52,85 @@ const Absences = () => {
   );
 };
 
-const allAbsences = Array.from({ length: 50 }, (_, i) => ({
-  id: i + 1,
-  day: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"][
-    Math.floor(Math.random() * 5)
-  ],
-  date: new Date(2023, 6, 10 + i).toISOString().split("T")[0],
-  checkIn: `0${Math.floor(Math.random() * 3) + 8}:${Math.floor(
-    Math.random() * 60
-  )
-    .toString()
-    .padStart(2, "0")} AM`,
-  checkOut: `0${Math.floor(Math.random() * 3) + 4}:${Math.floor(
-    Math.random() * 60
-  )
-    .toString()
-    .padStart(2, "0")} PM`,
-  status: ["pending", "ditolak", "diterima"][Math.floor(Math.random() * 3)],
-}));
-
 function AbsenceAlert() {
+  const [hasCheckedIn, setHasCheckedIn] = useState<boolean | null>(null); // null to indicate loading state
+
+  useEffect(() => {
+    async function checkAbsenceStatus() {
+      const result = await checkAbsenceToday();
+      setHasCheckedIn(result);
+    }
+
+    checkAbsenceStatus();
+  }, []);
+
+  if (hasCheckedIn === null) {
+    return (
+      <div className="rounded-lg border p-6">
+        <p>Loading absence data...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-lg border p-6">
-      <div>
-        <span>
+      {hasCheckedIn ? (
+        <div>
           <h1>Welcome</h1>
-          <p>
-            Lorem ipsum dolor sit amet consectetur, adipisicing elit. Beatae,
-            debitis. Alias, qui.
-          </p>
-        </span>
-      </div>
-      <button></button>
+          <p>You have already checked in for today.</p>
+        </div>
+      ) : (
+        <Dialog>
+          <div>
+            <h1 className="font-bold text-2xl">Welcome, Good Morning</h1>
+            <p className="mt-1 mb-4">
+              {"You haven't checked in yet. Please check in now."}
+            </p>
+            <DialogTrigger asChild>
+              <Button>Check In</Button>
+            </DialogTrigger>
+          </div>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Daily Log Absence</DialogTitle>
+            </DialogHeader>
+            <AbsenceForm />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
 
 function AbsenceListTable() {
+  const [absences, setAbsences] = useState([]); // State to store fetched absences
   const [searchTerm, setSearchTerm] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const filteredAbsences = allAbsences.filter(
-    (absence) =>
+  // Fetch absence data when the component mounts
+  useEffect(() => {
+    const fetchAbsences = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const data = await getAllAbsences();
+        setAbsences(data);
+      } catch (err) {
+        setError("Failed to fetch absences.");
+      }
+      setLoading(false);
+    };
+    fetchAbsences();
+  }, []);
+
+  // Filter absences based on search term and date range
+  const filteredAbsences = absences.filter(
+    (absence: any) =>
       (absence.day.toLowerCase().includes(searchTerm.toLowerCase()) ||
         absence.date.includes(searchTerm)) &&
       (!startDate || absence.date >= startDate) &&
@@ -102,6 +145,9 @@ function AbsenceListTable() {
   );
 
   const totalPages = Math.ceil(filteredAbsences.length / itemsPerPage);
+
+  if (loading) return <p>Loading absences...</p>;
+  if (error) return <p>{error}</p>;
 
   return (
     <div className="container mx-auto pb-10">
@@ -141,7 +187,7 @@ function AbsenceListTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {currentItems.map((absence) => (
+            {currentItems.map((absence: any) => (
               <TableRow key={absence.id}>
                 <TableCell>{absence.day}</TableCell>
                 <TableCell>{absence.date}</TableCell>
@@ -152,7 +198,7 @@ function AbsenceListTable() {
                   <div className="flex justify-between">
                     <Button variant="outline" size="icon">
                       <Eye className="h-4 w-4" />
-                      <span className="sr-only">Edit</span>
+                      <span className="sr-only">View</span>
                     </Button>
                     <Button variant="outline" size="icon">
                       <Edit className="h-4 w-4" />
@@ -215,5 +261,6 @@ function AbsenceListTable() {
     </div>
   );
 }
+
 
 export default Absences;

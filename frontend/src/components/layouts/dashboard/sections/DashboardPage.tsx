@@ -1,7 +1,8 @@
 "use client";
 
 import Container from "@/components/elements/Container";
-import { getUserData } from "@/lib/services";
+import { getStoredToken } from "@/lib/axios/api/auth";
+import { getCurrentUserData } from "@/lib/axios/api/users";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
@@ -11,10 +12,13 @@ const Dashboard = () => {
   const [userData, setUserData] = useState(null);
 
   useEffect(() => {
-    const user = getUserData();
-    if (user) {
-      setUserData(user); 
-    }
+    const fetchUserData = async () => {
+      const user = await getCurrentUserData(getStoredToken()!);
+      if (user) {
+        setUserData(user);
+      }
+    };
+    fetchUserData();
   }, []);
 
   useEffect(() => {

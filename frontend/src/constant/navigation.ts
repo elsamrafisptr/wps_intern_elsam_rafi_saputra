@@ -16,6 +16,16 @@ export const NAVIGATIONDATA = [
     label: "calendar",
   },
   {
+    href: dashboardRoute + "/calendar",
+    icon: Icons.contact,
+    label: "User Management",
+  },
+  {
+    href: dashboardRoute + "/calendar",
+    icon: Icons.contact,
+    label: "Sector Management",
+  },
+  {
     href: dashboardRoute + "/settings",
     icon: Icons.contact,
     label: "settings",
