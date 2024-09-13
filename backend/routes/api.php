@@ -10,7 +10,7 @@ use App\Http\Controllers\SectorController;
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/logout', [AuthController::class, 'logout']);
-
+Route::middleware('auth:sanctum')->get('/profile', [AuthController::class, 'profile']);
 
 // User Routes
 Route::get('/users', [UserController::class, 'index']); 
